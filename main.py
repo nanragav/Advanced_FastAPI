@@ -1,10 +1,13 @@
 from fastapi import FastAPI, HTTPException
 import logging
 import uvicorn
+from routers import user_router
 
 logger = logging.getLogger(__name__)
 
 app = FastAPI()
+
+app.include_router(user_router.router)
 
 @app.get('/')
 async def root():

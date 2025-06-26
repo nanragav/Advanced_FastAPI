@@ -12,6 +12,7 @@ class User(Base):
     name = Column(String(60), nullable=False)
     password = Column(String(255), nullable=False)
     created_at = Column(DateTime, nullable=True, default=get_current_time)
+    session_id = Column(UUID(as_uuid=True), nullable=False, default=uuid4)
 
     content = relationship('Blog', back_populates='creator')
 

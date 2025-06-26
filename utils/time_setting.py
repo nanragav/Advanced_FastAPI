@@ -1,11 +1,22 @@
-from datetime import datetime, timedelta, UTC
+from datetime import datetime, UTC, timedelta
 import logging
 from fastapi import HTTPException
-from sqlalchemy.sql.ddl import sort_tables_and_constraints
 
 logger = logging.getLogger(__name__)
 
 async def get_current_time():
+
+    try:
+
+        return datetime.now(UTC).replace(tzinfo=None)
+
+    except Exception as e:
+
+        logger.error(f'Error while getting the current time {e}')
+
+        raise HTTPException(status_code=500, detail='Time Error')
+
+async def get_current_time_with_tz():
 
     try:
 
@@ -15,4 +26,28 @@ async def get_current_time():
 
         logger.error(f'Error while getting the current time {e}')
 
-        raise HTTPException(status_code=500, detail='Time Error when creating user')
+        raise HTTPException(status_code=500, detail='Time Error')
+
+async def get_access_cookie_expire():
+
+    try:
+
+        return datetime.now(UTC) + timedelta(minutes=30)
+
+    except Exception as e:
+
+        logger.error(f'Error while getting the current time {e}')
+
+        raise HTTPException(status_code=500, detail='Time Error')
+
+async def get_refresh_cookie_expire():
+
+    try:
+
+        return datetime.now(UTC) + timedelta(days=7)
+
+    except Exception as e:
+
+        logger.error(f'Error while getting the current time {e}')
+
+        raise HTTPException(status_code=500, detail='Time Error')
