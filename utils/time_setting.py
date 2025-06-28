@@ -4,7 +4,7 @@ from fastapi import HTTPException
 
 logger = logging.getLogger(__name__)
 
-async def get_current_time():
+async def get_current_ist_time():
 
     try:
 
@@ -32,7 +32,7 @@ async def get_access_cookie_expire():
 
     try:
 
-        return datetime.now(UTC) + timedelta(minutes=30)
+        return datetime.now(UTC) + timedelta(minutes=60)
 
     except Exception as e:
 

@@ -28,10 +28,6 @@ async def verify_password(plain_password: str, hashed_password: str):
 
         is_valid =  pwd_context.verify(plain_password, hashed_password)
 
-        if not is_valid:
-
-            raise HTTPException(status_code=401, detail='Unauthorised to access this account')
-
         return is_valid
 
     except HTTPException as he:

@@ -1,8 +1,8 @@
 from sqlalchemy.orm import relationship
 from database import Base
-from sqlalchemy import Column, String, UUID, DateTime, PrimaryKeyConstraint, Text, ForeignKey, ForeignKeyConstraint
+from sqlalchemy import Column, String, UUID, DateTime, PrimaryKeyConstraint, Text, ForeignKeyConstraint
 from uuid import uuid4
-from utils.time_setting import get_current_time
+from utils.time_setting import get_current_ist_time
 
 class User(Base):
 
@@ -11,7 +11,7 @@ class User(Base):
     id = Column(UUID(as_uuid=True), default=uuid4)
     name = Column(String(60), nullable=False)
     password = Column(String(255), nullable=False)
-    created_at = Column(DateTime, nullable=True, default=get_current_time)
+    created_at = Column(DateTime, nullable=True, default=get_current_ist_time)
     session_id = Column(UUID(as_uuid=True), nullable=False, default=uuid4)
 
     content = relationship('Blog', back_populates='creator')
