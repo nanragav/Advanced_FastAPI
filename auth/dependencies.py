@@ -121,6 +121,10 @@ async def get_user(response: Response, db: AsyncSession = Depends(get_db), token
 
     user = await get_user_by_id(id=UUID(decoded_token['id']), session_id=UUID(decoded_token['session_id']), db=db, response=response)
 
+    if isinstance(user, JSONResponse):
+
+        return user
+
     if token_source == 'refresh':
 
         data = {
