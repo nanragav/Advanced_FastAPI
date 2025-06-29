@@ -135,9 +135,9 @@ async def get_user(response: Response, db: AsyncSession = Depends(get_db), token
 
         new_access_token = await create_access_token(data=data)
 
-        expire = get_access_cookie_expire()
+        expire = await get_access_cookie_expire()
 
-        response.set_cookie(key='access_token', value=new_access_token, path='/', domain='127.0.0.1', expires=expire)
+        response.set_cookie(key='access_token', value=new_access_token, path='/', domain='127.0.0.1', expires=expire, secure=True)
 
         return user
 

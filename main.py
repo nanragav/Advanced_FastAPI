@@ -2,6 +2,13 @@ from fastapi import FastAPI, HTTPException
 import logging
 import uvicorn
 from routers import user_router
+import os
+
+current_dir = os.path.dirname(os.path.abspath(__file__))
+
+ssl_keyfile = os.path.join(current_dir, "certs", "key.pem")
+ssl_certfile = os.path.join(current_dir, "certs", "cert.pem")
+
 
 logger = logging.getLogger(__name__)
 
@@ -25,4 +32,4 @@ async def root():
 
 if __name__ == '__main__':
 
-    uvicorn.run(app='main:app', host='0.0.0.0', port=8000, reload=True)
+    uvicorn.run(app='main:app', host='0.0.0.0', port=8000, reload=True, ssl_keyfile=ssl_keyfile, ssl_certfile=ssl_certfile)

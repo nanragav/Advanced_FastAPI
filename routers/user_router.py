@@ -33,9 +33,9 @@ async def login(request: LoginUserRequest, response: Response, db: AsyncSession 
 
         refresh_cookie_expire = await get_refresh_cookie_expire()
 
-        response.set_cookie(key='access_token', value=access_token, httponly=True, path='/', expires=access_cookie_expire, domain='127.0.0.1')
+        response.set_cookie(key='access_token', value=access_token, httponly=True, path='/', expires=access_cookie_expire, domain='127.0.0.1', secure=True)
 
-        response.set_cookie(key='refresh_token', value=refresh_token, httponly=True, path='/', expires=refresh_cookie_expire, domain='127.0.0.1')
+        response.set_cookie(key='refresh_token', value=refresh_token, httponly=True, path='/', expires=refresh_cookie_expire, domain='127.0.0.1', secure=True)
 
         return {'message': 'Login Successful'}
 
