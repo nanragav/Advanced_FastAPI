@@ -1,6 +1,4 @@
-from sqlalchemy.util import await_only
-
-from schemas import LoginUserRequest
+from schemas import LoginUserRequest, CreateUserRequest
 from sqlalchemy.ext.asyncio import AsyncSession
 from sqlalchemy import select
 from models import User
@@ -11,6 +9,7 @@ from sqlalchemy.exc import SQLAlchemyError
 import logging
 from uuid import uuid4
 from auth.dependencies import clear_cookie
+from utils.time_setting import get_current_ist_time
 
 
 logger = logging.getLogger(__name__)
@@ -68,7 +67,7 @@ async def user_login(request: LoginUserRequest, db: AsyncSession):
 
         raise HTTPException(status_code=500, detail='Internal Server Error')
 
-async def user_logout(current_user: dict, response: Response, db: AsyncSession):
+async def user_logout(current_user: User, response: Response, db: AsyncSession):
 
     try:
 
@@ -98,5 +97,38 @@ async def user_logout(current_user: dict, response: Response, db: AsyncSession):
 
         return await clear_cookie(response=response)
 
+async def create_new_user(request: CreateUserRequest, db: AsyncSession, current_user: User):
+
+    try:
+
+        created_time = await get_current_ist_time()
+
+        hashed_pwd = await get_hash(plain_password=request.password)
+
+        new_user = User(id=uuid4(), name=request.name, session_id=uuid4(), created_at=created_time, password=hashed_pwd, created_by=current_user.id)
+
+        db.add(new_user)
+
+        await db.commit()
+
+        await db.refresh(new_user)
+
+        return new_user
+
+    except SQLAlchemyError as se:
+
+        logger.error(f'Error in creating the user {se}')
+
+        raise HTTPException(status_code=500, detail='Cannot create a create')
+
+    except HTTPException as he:
+
+        raise he
+
+    except Exception as e:
+
+        logger.error(f'Unknown error in creating the user {e}')
+
+        raise HTTPException(status_code=500, detail='User creating failed with error')
 
 

@@ -8,11 +8,12 @@ class User(Base):
 
     __tablename__ = 'users'
 
-    id = Column(UUID(as_uuid=True), default=uuid4)
+    id = Column(UUID(as_uuid=True), default=uuid4, index=True)
     name = Column(String(60), nullable=False)
     password = Column(String(255), nullable=False)
-    created_at = Column(DateTime, nullable=True, default=get_current_ist_time)
     session_id = Column(UUID(as_uuid=True), nullable=False, default=uuid4)
+    created_at = Column(DateTime, nullable=True, default=get_current_ist_time)
+    created_by = Column(UUID(as_uuid=True), nullable=True)
 
     content = relationship('Blog', back_populates='creator')
 
@@ -24,10 +25,10 @@ class Blog(Base):
 
     __tablename__ = 'blogs'
 
-    id = Column(UUID(as_uuid=True), default=uuid4)
+    id = Column(UUID(as_uuid=True), default=uuid4, index=True)
     title = Column(Text, nullable=False)
     body = Column(Text, nullable=False)
-    user_id = Column(UUID(as_uuid=True), nullable=False)
+    user_id = Column(UUID(as_uuid=True), nullable=False, index=True)
 
     creator = relationship('User', back_populates='content')
 
