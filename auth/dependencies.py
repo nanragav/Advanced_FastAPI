@@ -1,41 +1,25 @@
-from fastapi import Request, Response, Depends, HTTPException
-from database import get_db
-from sqlalchemy.ext.asyncio import AsyncSession
-from .token import decode_access_token, decode_refresh_token, create_access_token
-from utils.time_setting import get_access_cookie_expire
-import logging
+from fastapi import Request, Response, Depends
 from fastapi.responses import JSONResponse
+from sqlalchemy.exc import SQLAlchemyError
+from .token import decode_access_token, decode_refresh_token, create_access_token
+import logging
+from utils.time_setting import get_current_time_with_tz, get_access_cookie_expire
 from datetime import datetime, UTC
-from uuid import UUID, uuid4
-from models import User
+from sqlalchemy.ext.asyncio import AsyncSession
+from database import get_db
+from uuid import UUID
 from sqlalchemy import select
-from  sqlalchemy.exc import SQLAlchemyError
-
-
+from models import User
 
 logger = logging.getLogger(__name__)
 
-async def clear_old_cookies(response: Response):
+async def clear_cookie(response: Response):
 
-    try:
+    response.delete_cookie(key='access_token', path='/', domain='127.0.0.1')
+    response.delete_cookie(key='refresh_token', path='/', domain='127.0.0.1')
+    return JSONResponse(status_code=401, content={'detail': 'Authentication Failed'})
 
-        response.delete_cookie(key='access_token', path='/', domain='127.0.0.1')
-
-        response.delete_cookie(key='refresh_token', path='/', domain='127.0.0.1')
-
-    except Exception as e:
-
-        logger.error(f'Error in cookie deletion {e}')
-
-        raise HTTPException(status_code=404, detail='Error while removing cookie')
-
-async def clear_cookie_and_error(response: Response, status_code: int, detail: str):
-
-    await clear_old_cookies(response=response)
-
-    return JSONResponse(status_code=status_code, content={'detail':detail}, headers=response.headers)
-
-async def get_user_by_id(id: UUID, db: AsyncSession, response: Response):
+async def get_user_by_id(id: UUID, session_id: UUID, db: AsyncSession, response: Response):
 
     try:
 
@@ -47,24 +31,27 @@ async def get_user_by_id(id: UUID, db: AsyncSession, response: Response):
 
         if not user:
 
-            return clear_cookie_and_error(status_code=404, response=response, detail='User not found')
+            return await clear_cookie(response=response)
+
+        if user.session_id != session_id:
+
+            return await clear_cookie(response=response)
 
         return user
 
     except SQLAlchemyError as se:
 
-        logger.error(f'Error in getting user {se}')
+        logger.error(f'Error when getting the user {se}')
 
-        return clear_cookie_and_error(response=response, status_code=500, detail='Error while getting user')
+        return await clear_cookie(response=response)
 
     except Exception as e:
 
-        logger.error(f'Unknown error while getting the user {e}')
+        logger.error(f'Unknown Error when getting the user {e}')
 
-        return clear_cookie_and_error(response=response, status_code=500, detail='Cant retrive the information')
+        return await clear_cookie(response=response)
 
-
-async def get_current_user(request: Request, response: Response, db: AsyncSession = Depends(get_db)):
+async def user_token(request: Request, response: Response):
 
     try:
 
@@ -74,83 +61,83 @@ async def get_current_user(request: Request, response: Response, db: AsyncSessio
 
         if not access_token or not refresh_token:
 
-            return await clear_cookie_and_error(response=response,status_code=401, detail='Not Authenticated')
+            return await clear_cookie(response=response)
+
+        access_token_decoded = None
+
+        refresh_token_decoded = None
 
         try:
 
             access_token_decoded = await decode_access_token(access_token)
 
-        except HTTPException as he:
-
-            logger.error(f'Error in User access token decoding {he}')
-
-            return await clear_cookie_and_error(response=response, status_code=401, detail='Invalid or Expired Token')
-
         except Exception as e:
 
-            logger.error(f'Unknown error in user access token decode {e}')
-
-            return await clear_cookie_and_error(response=response, status_code=401, detail='Invalid or Tampered Token')
+            logger.error(f'Error in Access Token Decode {e}')
 
         try:
 
             refresh_token_decoded = await decode_refresh_token(refresh_token)
 
-        except HTTPException as he:
-
-            logger.error(f'Error in User access token decoding {he}')
-
-            return await clear_cookie_and_error(response=response, status_code=401, detail='Invalid or Expired Token')
-
         except Exception as e:
 
-            logger.error(f'Unknown error in user access token decode {e}')
+            logger.error(f'Error in Refresh Token Decode')
 
-            return await clear_cookie_and_error(response=response, status_code=401, detail='Invalid or Tampered Token')
+        now = await get_current_time_with_tz()
 
-        access_token_expire = access_token_decoded['exp']
+        if access_token_decoded:
 
-        refresh_token_expire = refresh_token_decoded['exp']
+            expire = datetime.fromtimestamp(access_token_decoded['exp'], tz=UTC)
 
-        if datetime.fromtimestamp(refresh_token_expire, tz=UTC) > datetime.now(UTC):
+            if expire > now:
 
-            if datetime.fromtimestamp(access_token_expire, tz=UTC) > datetime.now(UTC):
+                return ('access', access_token_decoded)
 
-                user = await get_user_by_id(id=UUID(access_token_decoded['id']), db=db, response=response)
+        if refresh_token_decoded:
 
-                return user
+            expire = datetime.fromtimestamp(refresh_token_decoded['exp'], tz=UTC)
 
-            else:
+            if expire > now:
 
-                user = await get_user_by_id(id=UUID(refresh_token_decoded['id']), db=db, response=response)
+                return ('refresh', refresh_token_decoded)
 
-                user.session_id = uuid4()
-
-                db.add(user)
-
-                await db.commit()
-
-                await db.refresh(user)
-
-                data = {'id': str(user.id), 'session_id': str(user.session_id), 'name': user.name}
-
-                new_access_token = await create_access_token(data=data)
-
-                expire = await get_access_cookie_expire()
-
-                response.set_cookie(key='access_token', value=new_access_token, path='/', domain='127.0.0.1', expires=expire)
-
-                return user
-
-        else:
-
-            return await clear_cookie_and_error(response=response, status_code=401, detail='Token Expired')
-
-    except HTTPException as he:
-
-        raise he
+        return await clear_cookie(response=response)
 
     except Exception as e:
 
-        raise HTTPException(status_code=401, detail='Error while getting the user')
+        logger.error(f'Unknown Error in getting the token {e}')
+
+        return await clear_cookie(response=response)
+
+async def get_user(response: Response, db: AsyncSession = Depends(get_db), token = Depends(user_token)):
+
+    user_token = token
+
+    if isinstance(user_token, JSONResponse):
+
+        return user_token
+
+    token_source, decoded_token = token
+
+    user = await get_user_by_id(id=UUID(decoded_token['id']), session_id=UUID(decoded_token['session_id']), db=db, response=response)
+
+    if token_source == 'refresh':
+
+        data = {
+            'id': user.id,
+            'session_id': user.session_id,
+            'name': user.name
+        }
+
+        new_access_token = await create_access_token(data=data)
+
+        expire = get_access_cookie_expire()
+
+        response.set_cookie(key='access_token', value=new_access_token, path='/', domain='127.0.0.1', expires=expire)
+
+        return user
+
+    return user
+
+
 

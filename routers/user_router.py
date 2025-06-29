@@ -1,11 +1,14 @@
 from fastapi import APIRouter, Depends, HTTPException, Response, Request
+from starlette.responses import JSONResponse
+
 from schemas import LoginUserRequest
 from sqlalchemy.ext.asyncio import AsyncSession
 from database import get_db
-from utils.user_utils import user_login
+from utils.user_utils import user_login, user_logout
 import logging
 from utils.time_setting import get_access_cookie_expire, get_refresh_cookie_expire
-from auth.dependencies import get_current_user
+from auth.dependencies import get_user
+from auth.dependencies import clear_cookie
 from models import User
 
 logger = logging.getLogger(__name__)
@@ -49,6 +52,36 @@ async def login(request: LoginUserRequest, response: Response, db: AsyncSession 
 
 
 @router.post('/logout')
-async def logout(request: Request, response: Response, user: dict = Depends(get_current_user)):
+async def logout(response: Response, db: AsyncSession = Depends(get_db), user = Depends(get_user)):
 
-    return user
+    try:
+
+        if isinstance(user, JSONResponse):
+
+            return {'message': "Authentication Failed. Logging Out"}
+
+        status = await user_logout(response=response, db=db, current_user=user)
+
+        if isinstance(status, JSONResponse):
+
+            await clear_cookie(response=response)
+
+            return {'message': 'Error, Logged out Forcefully'}
+
+        if status:
+
+            await clear_cookie(response=response)
+
+            return {'message': 'Logged Out Successfully'}
+
+        await clear_cookie(response=response)
+
+        return {'message': 'Error, Logged out Forcefully'}
+
+    except Exception as e:
+
+        logger.error(f'Unknown Error in Logout Endpoint {e}')
+
+        await clear_cookie(response=response)
+
+        return {'message': 'Error, Logged out Forcefully'}

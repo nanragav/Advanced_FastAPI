@@ -1,3 +1,5 @@
+from sqlalchemy.util import await_only
+
 from schemas import LoginUserRequest
 from sqlalchemy.ext.asyncio import AsyncSession
 from sqlalchemy import select
@@ -8,7 +10,8 @@ from auth.token import create_access_token, create_refresh_token
 from sqlalchemy.exc import SQLAlchemyError
 import logging
 from uuid import uuid4
-from auth.dependencies import clear_old_cookies
+from auth.dependencies import clear_cookie
+
 
 logger = logging.getLogger(__name__)
 
@@ -61,7 +64,39 @@ async def user_login(request: LoginUserRequest, db: AsyncSession):
 
     except Exception as e:
 
-        logger.error(f'Unknown error in access token creation {e}')
+        logger.error(f'Unknown error in user login {e}')
 
         raise HTTPException(status_code=500, detail='Internal Server Error')
+
+async def user_logout(current_user: dict, response: Response, db: AsyncSession):
+
+    try:
+
+        if not current_user:
+
+            return await clear_cookie(response=response)
+
+        current_user.session_id = uuid4()
+
+        db.add(current_user)
+
+        await db.commit()
+
+        await db.refresh(current_user)
+
+        return True
+
+    except SQLAlchemyError as se:
+
+        logger.error(f'Error while logging out user {se}')
+
+        return await clear_cookie(response=response)
+
+    except Exception as e:
+
+        logger.error(f'Unknown error in user logout {e}')
+
+        return await clear_cookie(response=response)
+
+
 

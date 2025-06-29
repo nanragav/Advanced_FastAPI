@@ -1,10 +1,10 @@
-from fastapi import HTTPException
+from fastapi import HTTPException, status
 from typing import Optional
 from utils.time_setting import get_current_time_with_tz
 from datetime import timedelta
 from dotenv import load_dotenv
 import os
-from jose import jwt, JWTError
+from jose import jwt, JWTError, ExpiredSignatureError
 import logging
 
 logger = logging.getLogger(__name__)
@@ -15,11 +15,11 @@ ACCESS_TOKEN_EXPIRE = int(os.getenv('ACCESS_TOKEN_EXPIRE'))
 
 REFRESH_TOKEN_EXPIRE = int(os.getenv('REFRESH_TOKEN_EXPIRE'))
 
-ACCESS_TOKEN_SECRET = os.getenv('USER_ACCESS_TOKEN_SECRET')
+ACCESS_TOKEN_SECRET = str(os.getenv('USER_ACCESS_TOKEN_SECRET'))
 
-REFRESH_TOKEN_SECRET = os.getenv('USER_REFRESH_TOKEN_SECRET')
+REFRESH_TOKEN_SECRET = str(os.getenv('USER_REFRESH_TOKEN_SECRET'))
 
-ALGORITHM = os.getenv('ALGORITHM')
+ALGORITHM = str(os.getenv('ALGORITHM'))
 
 
 async def create_access_token(data: dict, expires: Optional[int] = None):
@@ -42,9 +42,9 @@ async def create_access_token(data: dict, expires: Optional[int] = None):
 
     except JWTError as je:
 
-        logger.error(f'Error in user access token creation {je}')
+        logger.error(f'Error in access token creation {je}')
 
-        raise HTTPException(status_code=500, detail='Error while creating the user access token')
+        raise HTTPException(status_code=500, detail='Error while creating the access token')
 
     except HTTPException as he:
 
@@ -52,7 +52,7 @@ async def create_access_token(data: dict, expires: Optional[int] = None):
 
     except Exception as e:
 
-        logger.error(f'Unknown error in user access token creation {e}')
+        logger.error(f'Unknown error in access token creation {e}')
 
         raise HTTPException(status_code=500, detail='Internal Server Error')
 
@@ -67,13 +67,21 @@ async def decode_access_token(token: str):
 
         else:
 
-            raise HTTPException(status_code=401, detail='Error when getting the user access token')
+            raise HTTPException(status_code=401, detail='Error when getting the access token')
+
+    except ExpiredSignatureError:
+
+        raise HTTPException(status_code=status.HTTP_401_UNAUTHORIZED, detail='Access token expired')
 
     except JWTError as je:
 
-        logger.error(f'Error in user access token decode {je}')
+        logger.error(f'Error in access token decode {je}')
 
-        raise HTTPException(status_code=500, detail='Error while decoding the user access token')
+        # if 'signature has expired' in je:
+        #
+        #     return None
+
+        raise HTTPException(status_code=500, detail='Error while decoding the access token')
 
     except HTTPException as he:
 
@@ -95,13 +103,21 @@ async def decode_refresh_token(token: str):
 
         else:
 
-            raise HTTPException(status_code=401, detail='Error when getting the user refresh token')
+            raise HTTPException(status_code=401, detail='Error when getting the refresh token')
+
+    except ExpiredSignatureError:
+
+        raise HTTPException(status_code=status.HTTP_401_UNAUTHORIZED, detail='Access token expired')
 
     except JWTError as je:
 
-        logger.error(f'Error in user refresh token decode {je}')
+        logger.error(f'Error in refresh token decode {je}')
 
-        raise HTTPException(status_code=500, detail='Error while decoding the user refresh token')
+        # if 'signature has expired' in je:
+        #
+        #     return None
+
+        raise HTTPException(status_code=500, detail='Error while decoding the refresh token')
 
     except HTTPException as he:
 
@@ -109,7 +125,7 @@ async def decode_refresh_token(token: str):
 
     except Exception as e:
 
-        logger.error(f'Unknown error in user refresh token decode {e}')
+        logger.error(f'Unknown error in refresh token decode {e}')
 
         raise HTTPException(status_code=500, detail='Internal Server Error')
 
@@ -121,7 +137,7 @@ async def create_refresh_token(data: dict, expires: Optional[int] = None):
 
         if not expires:
 
-            expire = await get_current_time_with_tz() + timedelta(days=ACCESS_TOKEN_EXPIRE)
+            expire = await get_current_time_with_tz() + timedelta(minutes=REFRESH_TOKEN_EXPIRE)
 
         else:
 
@@ -133,9 +149,9 @@ async def create_refresh_token(data: dict, expires: Optional[int] = None):
 
     except JWTError as je:
 
-        logger.error(f'Error in blog refresh token creation {je}')
+        logger.error(f'Error in refresh token creation {je}')
 
-        raise HTTPException(status_code=500, detail='Error while creating the blog refresh token')
+        raise HTTPException(status_code=500, detail='Error while creating the refresh token')
 
     except HTTPException as he:
 
@@ -143,6 +159,6 @@ async def create_refresh_token(data: dict, expires: Optional[int] = None):
 
     except Exception as e:
 
-        logger.error(f'Unknown error in blog refresh token creation {e}')
+        logger.error(f'Unknown error in refresh token creation {e}')
 
         raise HTTPException(status_code=500, detail='Internal Server Error')
