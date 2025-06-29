@@ -9,3 +9,7 @@ class CreateUserRequest(BaseModel):
 
     name: str
     password: str
+
+class DeleteUserRequest(BaseModel):
+
+    name: str

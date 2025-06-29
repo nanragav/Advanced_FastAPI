@@ -137,7 +137,7 @@ async def create_refresh_token(data: dict, expires: Optional[int] = None):
 
         if not expires:
 
-            expire = await get_current_time_with_tz() + timedelta(minutes=REFRESH_TOKEN_EXPIRE)
+            expire = await get_current_time_with_tz() + timedelta(days=REFRESH_TOKEN_EXPIRE)
 
         else:
 

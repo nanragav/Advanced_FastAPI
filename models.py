@@ -9,7 +9,7 @@ class User(Base):
     __tablename__ = 'users'
 
     id = Column(UUID(as_uuid=True), default=uuid4, index=True)
-    name = Column(String(60), nullable=False)
+    name = Column(String(60), nullable=False, unique=True)
     password = Column(String(255), nullable=False)
     session_id = Column(UUID(as_uuid=True), nullable=False, default=uuid4)
     created_at = Column(DateTime, nullable=True, default=get_current_ist_time)

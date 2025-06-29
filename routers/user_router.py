@@ -1,9 +1,9 @@
 from fastapi import APIRouter, Depends, HTTPException, Response, Request
 from fastapi.responses import JSONResponse
-from schemas import LoginUserRequest, CreateUserRequest
+from schemas import LoginUserRequest, CreateUserRequest, DeleteUserRequest
 from sqlalchemy.ext.asyncio import AsyncSession
 from database import get_db
-from utils.user_utils import user_login, user_logout, create_new_user
+from utils.user_utils import user_login, user_logout, create_new_user, delete_current_user
 import logging
 from utils.time_setting import get_access_cookie_expire, get_refresh_cookie_expire
 from auth.dependencies import get_user
@@ -57,13 +57,17 @@ async def logout(response: Response, db: AsyncSession = Depends(get_db), user = 
 
         if isinstance(user, JSONResponse):
 
-            return {'message': "Authentication Failed. Logging Out"}
+            response.status_code = 401
+
+            return {'message': "Not Authenticated"}
 
         status = await user_logout(response=response, db=db, current_user=user)
 
         if isinstance(status, JSONResponse):
 
             await clear_cookie(response=response)
+
+            response.status_code = 401
 
             return {'message': 'Error, Logged out Forcefully'}
 
@@ -75,6 +79,8 @@ async def logout(response: Response, db: AsyncSession = Depends(get_db), user = 
 
         await clear_cookie(response=response)
 
+        response.status_code = 401
+
         return {'message': 'Error, Logged out Forcefully'}
 
     except Exception as e:
@@ -83,14 +89,18 @@ async def logout(response: Response, db: AsyncSession = Depends(get_db), user = 
 
         await clear_cookie(response=response)
 
+        response.status_code = 401
+
         return {'message': 'Error, Logged out Forcefully'}
 
 @router.post('/create-user')
-async def create_user(request: CreateUserRequest, db: AsyncSession = Depends(get_db), user = Depends(get_user)):
+async def create_user(request: CreateUserRequest, response: Response, db: AsyncSession = Depends(get_db), user = Depends(get_user)):
 
     try:
 
         if isinstance(user, JSONResponse):
+
+            response.status_code = 401
 
             return {'message': 'Unauthorized to access this endpoint'}
 
@@ -107,3 +117,39 @@ async def create_user(request: CreateUserRequest, db: AsyncSession = Depends(get
         logger.error(f'Unknown Error in Logout Endpoint {e}')
 
         raise HTTPException(status_code=500, detail='Internal Server Error')
+
+@router.delete('/delete-user')
+async def delete_user(response: Response, db: AsyncSession = Depends(get_db), user = Depends(get_user)):
+
+    try:
+
+        if isinstance(user, JSONResponse):
+
+            response.status_code = 401
+
+            return {'message': 'Unauthorized to access this endpoint'}
+
+        status = await delete_current_user(current_user=user, db=db)
+
+        if status:
+
+            await clear_cookie(response=response)
+
+            return {'message': "Your account deleted"}
+
+        await db.rollback()
+
+        return {'message': 'Deletion Failed'}
+
+    except HTTPException as he:
+
+        raise he
+
+    except Exception as e:
+
+        logger.error(f'Unknown Error while deleting the user {e}')
+
+        await db.rollback()
+
+        raise HTTPException(status_code=500, detail='Error when removing your account')
+

@@ -119,7 +119,7 @@ async def create_new_user(request: CreateUserRequest, db: AsyncSession, current_
 
         logger.error(f'Error in creating the user {se}')
 
-        raise HTTPException(status_code=500, detail='Cannot create a create')
+        raise HTTPException(status_code=500, detail='Cannot create a user')
 
     except HTTPException as he:
 
@@ -131,4 +131,32 @@ async def create_new_user(request: CreateUserRequest, db: AsyncSession, current_
 
         raise HTTPException(status_code=500, detail='User creating failed with error')
 
+async def delete_current_user(current_user: User, db: AsyncSession):
 
+    try:
+
+        await db.delete(current_user)
+
+        await db.commit()
+
+        return True
+
+    except SQLAlchemyError as se:
+
+        logger.error(f'Error in deleting the user {se}')
+
+        await db.rollback()
+
+        raise HTTPException(status_code=500, detail='Cannot delete a user')
+
+    except HTTPException as he:
+
+        raise he
+
+    except Exception as e:
+
+        logger.error(f'Unknown error in deleting the user {e}')
+
+        await db.rollback()
+
+        raise HTTPException(status_code=500, detail='User deletion failed with error')
